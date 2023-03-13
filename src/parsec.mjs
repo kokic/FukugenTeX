@@ -230,6 +230,8 @@ const digits = digit.plus()
 const letter = token(x => x.boundedIn('a', 'z') || x.boundedIn('A', 'Z'))
 const letters = letter.plus()
 
+export { Parser }
+
 export { token, tokens, character, includes, inclusive, string }
 export { space, spacea, spaces, loose, soft }
 export { digit, digits, letter, letters }
