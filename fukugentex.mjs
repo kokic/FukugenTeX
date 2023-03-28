@@ -8,8 +8,9 @@ import {
   string,
   digit,
   letter,
-  letters, 
-  Parser, 
+  letters,
+  Parser,
+  state,
 } from "./src/parsec.mjs"
 
 
@@ -46,7 +47,7 @@ const bsscanner = new Parser(source => {
       ((curr == '}') && counter--)
   }
   return [
-    source.substring(1, position - 1), 
+    source.substring(1, position - 1),
     source.substring(position)
   ]
 })
@@ -59,11 +60,16 @@ const newcommand = macroh.check(x => x == "newcommand")
 const lookupMap = new Object()
 
 
-newcommand.parse('\\newcommand{\\CC}{\\mathbb}')
-newcommand.parse('\\newcommand{\\Ob}{\\operatorname{Ob}}')
-newcommand.parse('\\newcommand{\\defeq}{\\overset{\\text{def}}{=}}')
+// newcommand.parse(state('\\newcommand{\\CC}{\\mathbb}'))
+// newcommand.parse('\\newcommand{\\Ob}{\\operatorname{Ob}}')
+// newcommand.parse('\\newcommand{\\defeq}{\\overset{\\text{def}}{=}}')
 
-
+console.log(
+  character('a')
+    .follow(character('b'))
+    .map(x => x)
+    .parse(state('abc'))
+)
 
 
 console.log(lookupMap)

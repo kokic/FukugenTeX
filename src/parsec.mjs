@@ -32,7 +32,22 @@ export const link = run => new Link(run).check()
 
 /* --- --- Parser --- --- */
 
+
+const ParserState = function (input) {
+  this.buffer = [...input]
+  this.offset = 0
+  this.maximalindex = input.length - 1
+  this.next = () => this.buffer[this.offset++]
+  this.hasNext = () => this.maximalindex > this.offset
+}
+const state = s => new ParserState(s)
+
+
+// console.log(new ParserState('𝔸 over 𝕜 in KᴬTᴇX' ))
+// parse: ParserState -> [A, stub: String]
+
 // Parse<A>.parse: String -> [A, String]
+// 
 const Parser = function (parse) {
   this.parse = parse
 }
@@ -40,13 +55,13 @@ const Parser = function (parse) {
 export default Parser
 
 Parser.prototype.many = function () {
-  return new Parser(source => {
-    let [list, residue, tuple] = [[], source]
-    while (tuple = this.parse(residue)) {
+  return new Parser(state => {
+    let [list, tuple] = [[]]
+    while (tuple = this.parse(state)) {
       list.push(tuple[0])
-      residue = tuple[1]
+      // residue = tuple[1]
     }
-    return [list, residue]
+    return [list, '#stub_many']
   })
 }
 
@@ -58,19 +73,20 @@ Parser.prototype.some = function () {
 }
 
 Parser.prototype.asterisk = function () {
-  return new Parser(source => {
-    let [buffer, residue, tuple] = ['', source,]
-    while (tuple = this.parse(residue)) {
+  return new Parser(state => {
+    let [buffer, tuple] = ['']
+    // TODO: mark
+    while (tuple = this.parse(state)) {
       buffer += tuple[0]
-      residue = tuple[1]
+      // residue = tuple[1]
     }
-    return [buffer, residue]
+    return [buffer, '#stub_asterisk']
   })
 }
 
 Parser.prototype.plus = function () {
-  return new Parser(source => {
-    let tuple = this.asterisk().parse(source)
+  return new Parser(state => {
+    let tuple = this.asterisk().parse(state)
     return tuple[0].length >= 1 ? tuple : undefined
   })
 }
@@ -107,9 +123,9 @@ Function.prototype.parse = proxy((x, s) => x().parse(s))
  *          -> [[a, b], phase2]
  */
 Parser.prototype.follow = function (next) {
-  return new Parser(source =>
-    link(() => this.parse(source))
-      .pip(link(xs => next.parse(xs[1])))
+  return new Parser(state =>
+    link(() => this.parse(state))
+      .pip(link(() => next.parse(state)))
       .map(xs => [[xs[0][0], xs[1][0]], xs[1][1]])
       .run()
   )
@@ -184,11 +200,14 @@ Parser.prototype.log = function (s) {
 // const empty = new Parser(source => ['', source])
 
 const token = predicate => new Parser(
-  source => source.length > 0
-    ? predicate(source[0])
-      ? [source[0], source.substring(1)]
+  function (state) {
+    let x = [][+[]]
+    return state.hasNext()
+      ? predicate(x = state.next())
+        ? [x, '#stub_token']
+        : undefined
       : undefined
-    : undefined
+  }
 )
 
 const tokens = (n, predicate) => new Parser(
@@ -230,7 +249,7 @@ const digits = digit.plus()
 const letter = token(x => x.boundedIn('a', 'z') || x.boundedIn('A', 'Z'))
 const letters = letter.plus()
 
-export { Parser }
+export { Parser, ParserState, state }
 
 export { token, tokens, character, includes, inclusive, string }
 export { space, spacea, spaces, loose, soft }
