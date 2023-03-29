@@ -40,18 +40,16 @@ const ParserState = function (input = '') {
   this.maximalindex = input.length - 1
   this.curr = () => this.buffer[this.offset]
   this.peek = () => this.buffer[this.offset + 1]
-  // this.roll = () => this.offset
   this.next = () => this.buffer[++this.offset]
   this.hasNext = () => this.offset < this.maximalindex
-  // this.clone = () => {
-  //   let copied = new ParserState()
-  //   copied.buffer = this.buffer
-  //   copied.offset = this.offset
-  //   copied.source = this.source
-  //   copied.maximalindex = this.maximalindex
-  //   return copied
-  // }
+  this.jump = n => this.offset += n
 }
+
+ParserState.prototype.substring = function (start = 0, end) {
+  let from = this.offset + 1 + start
+  return this.source.substring(from, end)
+}
+
 const state = s => new ParserState(s)
 
 
@@ -197,9 +195,7 @@ Parser.prototype.check = function (predicate) {
  */
 Parser.prototype.or = function (next) {
   return new Parser(state => {
-    let copied = state.clone()
-    // console.log('off: ' + copied.offset)
-    return this.parse(state) || next.parse(copied)
+    return this.parse(state) || next.parse(state)
   })
 }
 
@@ -227,11 +223,14 @@ const token = predicate => new Parser(
 )
 
 const tokens = (n, predicate) => new Parser(
-  function (source) {
-    if (source.length < n) return undefined
-    const str = source.substring(0, n)
+  function (state) {
+    if (state.length < n) return undefined
+    const str = state.substring(0, n)
+    // console.log(`${str}, ${predicate(str)}`)
     if (!predicate(str)) return undefined
-    return [str, source.substring(n)]
+
+    state.jump(n)
+    return [str, '#stub_tokens']
   }
 )
 const inclusive = (n, ...xs) => tokens(n, x => xs.includes(x))
@@ -239,12 +238,18 @@ const inclusive = (n, ...xs) => tokens(n, x => xs.includes(x))
 const character = char => token(x => x == char)
 const includes = (...xs) => token(x => xs.includes(x))
 
+// 
+
 const string = str => new Parser(
-  source => source.length >= str.length
-    ? source.startsWith(str)
-      ? [str, source.substring(str.length)]
+  state => {
+    let segment = state.substring()
+    // console.log("seg: " + str)
+    return state.hasNext()
+      ? segment.startsWith(str)
+        ? [(state.jump(str.length), str), '#stub_string']
+        : undefined
       : undefined
-    : undefined
+  }
 )
 
 
