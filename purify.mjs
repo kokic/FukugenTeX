@@ -11,6 +11,7 @@ import {
   letters,
   state,
   space,
+  tokens,
 } from "./src/parsec.mjs"
 
 const underlineOrDollar = includes('_', '$')
@@ -69,7 +70,7 @@ const addExpr = mulExpr.extend(addOperator.follow(mulExpr).some()/*.log('add: ')
 const shiftExpr = addExpr.extend(shiftOperator.follow(addExpr).some()/*.log('shift: ')*/)
 
 
-const relExpr = shiftExpr.extend(relOperator.follow(shiftExpr).some().log('rel: '))
+const relExpr = shiftExpr.extend(relOperator.follow(shiftExpr).some())
 const eqExpr = relExpr.extend(eqOperator.follow(relExpr).some().log('eq: '))
 
 const bitAndExpr = eqExpr.extend(operator('&').follow(eqExpr).some().log('bitAnd: '))
@@ -95,10 +96,17 @@ const clockUp = function (runnable) {
   console.log('time: %dms', (runnable(), Date.now() - start))
 }
 
-const s = state('a + b, c >> d, x.y, x[y]')
-// clockUp(() => (x => x && console.log(x[0]))(addExpr.parse(s)))
+const print = s => console.dir(s, { depth: null })
 
-console.log(unaryExpr.parse(state('x.v + y')))
+
+
+const s = state('a + b, c << d, e * f, p / q')
+clockUp(() => (x => x && print(x[0]))(expr.parse(s)))
+
+
+
+
+
 
 
 

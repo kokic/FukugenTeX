@@ -42,13 +42,37 @@ const ParserState = function (input = '') {
   this.peek = () => this.buffer[this.offset + 1]
   this.next = () => this.buffer[++this.offset]
   this.hasNext = () => this.offset < this.maximalindex
+  this.length = () => this.maximalindex - this.offset
   this.jump = n => this.offset += n
 }
 
-ParserState.prototype.substring = function (start = 0, end) {
-  let from = this.offset + 1 + start
-  return this.source.substring(from, end)
+
+ParserState.prototype.update = function (data) {
+  this.source = data.source
+  this.buffer = data.buffer
+  this.offset = data.offset
+  this.maximalindex = data.maximalindex
 }
+
+ParserState.prototype.clone = function () {
+  let copied = new ParserState()
+  copied.source = this.source
+  copied.buffer = this.buffer
+  copied.offset = this.offset
+  copied.maximalindex = this.maximalindex
+  return copied
+}
+
+ParserState.prototype.substring = function (start = 0, end) {
+  const index = this.offset + 1;
+  start = index + start;
+  (defined(end)) && (end = index + end)
+
+  // console.log(start, end)
+  return this.source.substring(start, end)
+}
+
+
 
 const state = s => new ParserState(s)
 
@@ -134,12 +158,14 @@ Function.prototype.parse = proxy((x, s) => x().parse(s))
  *          -> [[a, b], phase2]
  */
 Parser.prototype.follow = function (next) {
-  return new Parser(state =>
-    link(() => this.parse(state))
-      .pip(link(() => next.parse(state)))
-      .map(xs => [[xs[0][0], xs[1][0]], xs[1][1]])
+  return new Parser(state => {
+    let copied = state.clone()
+    // console.log(state)
+    return link(() => this.parse(copied))
+      .pip(link(() => next.parse(copied)))
+      .map(xs => (state.update(copied), [[xs[0][0], xs[1][0]], xs[1][1]]))
       .run()
-  )
+  })
 }
 
 Parser.prototype.append = function (next) {
@@ -224,9 +250,10 @@ const token = predicate => new Parser(
 
 const tokens = (n, predicate) => new Parser(
   function (state) {
-    if (state.length < n) return undefined
+    if (state.length() < n) return undefined
+
     const str = state.substring(0, n)
-    // console.log(`${str}, ${predicate(str)}`)
+    // console.log(state)
     if (!predicate(str)) return undefined
 
     state.jump(n)
@@ -243,7 +270,7 @@ const includes = (...xs) => token(x => xs.includes(x))
 const string = str => new Parser(
   state => {
     let segment = state.substring()
-    // console.log("seg: " + str)
+    // console.log(segment)
     return state.hasNext()
       ? segment.startsWith(str)
         ? [(state.jump(str.length), str), '#stub_string']
