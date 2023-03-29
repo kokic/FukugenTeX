@@ -22,65 +22,50 @@ const lbrace = character('{')
 const rbrace = character('}')
 const braceWrap = x => lbrace.move(x).skip(rbrace)
 
-const macro_name = letters.append(digit.asterisk()).plus()
-const macroh = backslash.move(macro_name)
-const macrohc = backslash.append(macro_name)
+const macroname = letters.append(digit.asterisk()).plus()
+const macroh = backslash.move(macroname)
+const macrohc = backslash.append(macroname)
 
 const valueRef = () => newcommand_value
-const unary_macro = macrohc.follow(valueRef)
-const binary_macro = macrohc.follow(valueRef).follow(valueRef)
+const unarymacro = macrohc.follow(valueRef)
+const binarymacro = macrohc.follow(valueRef).follow(valueRef)
 
 const newcommand_holder = braceWrap(macrohc)
 const newcommand_value = braceWrap(valueRef)
-  .or(binary_macro)
-  .or(unary_macro)
+  .or(binarymacro)
+  .or(unarymacro)
   .or(macrohc)
   .or(letters)
 
 
 
-const param_scanner = new Parser(state => {
-  // console.log(state.curr())
+const paramsc = new Parser(state => {
   if (state.peek() != '{') return undefined
-  let [position, counter, len] = [1, 1, state.source.length]
-  while (position < len && counter) {
-    let curr = state.source.charAt(position++);
+  state.jump(2) // jump to '{', then jump to next
+
+  let [start, counter] = [state.offset, 1]
+  while (state.hasNext() && counter) {
+    let curr = state.next();
     ((curr == '{') && counter++) ||
       ((curr == '}') && counter--)
   }
+  
   return [
-    state.source.substring(1, position - 1),
-    // state.substring(position)
+    state.source.substring(start, state.offset), 
+    '#stub_paramsc'
   ]
 })
 
 const newcommand = macroh.check(x => x == "newcommand")
   .move(newcommand_holder)
-  .follow(param_scanner)
-  // .map(xs => {
-  //   console.log(xs)
-  //   lookup_map[xs[0]] = xs[1]
-  // })
+  .follow(paramsc)
+  .map(xs => lookup_map[xs[0]] = xs[1])
 
 const lookup_map = new Object()
 
-let x = newcommand.parse(state('\\newcommand{\\CC}{\\mathbb}'))
-
-console.log(x)
-
-// newcommand.parse(state('\\newcommand{\\Ob}{\\operatorname{Ob}}'))
-// newcommand.parse('\\newcommand{\\defeq}{\\overset{\\text{def}}{=}}')
-
-
-
-// console.log(
-//   character('a')
-//     .move(character('b'))
-//     .skip(character('c'))
-//     .parse(state('abc'))
-// )
-
-
+newcommand.parse(state('\\newcommand{\\CC}{\\mathbb}'))
+newcommand.parse(state('\\newcommand{\\Ob}{\\operatorname{Ob}}'))
+newcommand.parse(state('\\newcommand{\\defeq}{\\overset{\\text{def}}{=}}'))
 
 console.log(lookup_map)
 
