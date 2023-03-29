@@ -33,12 +33,24 @@ export const link = run => new Link(run).check()
 /* --- --- Parser --- --- */
 
 
-const ParserState = function (input) {
+const ParserState = function (input = '') {
   this.buffer = [...input]
-  this.offset = 0
+  this.offset = -1
+  this.source = input
   this.maximalindex = input.length - 1
-  this.next = () => this.buffer[this.offset++]
-  this.hasNext = () => this.maximalindex > this.offset
+  this.curr = () => this.buffer[this.offset]
+  this.peek = () => this.buffer[this.offset + 1]
+  // this.roll = () => this.offset
+  this.next = () => this.buffer[++this.offset]
+  this.hasNext = () => this.offset < this.maximalindex
+  // this.clone = () => {
+  //   let copied = new ParserState()
+  //   copied.buffer = this.buffer
+  //   copied.offset = this.offset
+  //   copied.source = this.source
+  //   copied.maximalindex = this.maximalindex
+  //   return copied
+  // }
 }
 const state = s => new ParserState(s)
 
@@ -77,6 +89,7 @@ Parser.prototype.asterisk = function () {
     let [buffer, tuple] = ['']
     // TODO: mark
     while (tuple = this.parse(state)) {
+      // console.log(tuple)
       buffer += tuple[0]
       // residue = tuple[1]
     }
@@ -98,8 +111,8 @@ Parser.prototype.plus = function () {
  *         -> [morph a, residue]
  */
 Parser.prototype.map = function (morph) {
-  return new Parser(source =>
-    link(() => this.parse(source))
+  return new Parser(state =>
+    link(() => this.parse(state))
       .map(xs => [morph(xs[0]), xs[1]])
       .run()
   )
@@ -142,9 +155,9 @@ Parser.prototype.append = function (next) {
  *          -> [a, phase2]
  */
 Parser.prototype.skip = function (next) {
-  return new Parser(source =>
-    link(() => this.parse(source))
-      .pip(link(xs => next.parse(xs[1])))
+  return new Parser(state =>
+    link(() => this.parse(state))
+      .pip(link(() => next.parse(state)))
       .map(xs => [xs[0][0], xs[1][1]])
       .run()
   )
@@ -158,9 +171,9 @@ Parser.prototype.skip = function (next) {
  *          -> [b, phase2]
  */
 Parser.prototype.move = function (next) {
-  return new Parser(source =>
-    link(() => this.parse(source))
-      .pip(link(xs => next.parse(xs[1])))
+  return new Parser(state =>
+    link(() => this.parse(state))
+      .pip(link(() => next.parse(state)))
       .map(xs => xs[1])
       .run()
   )
@@ -171,8 +184,8 @@ Parser.prototype.move = function (next) {
  *         -> [a, residue] (check predicate)
  */
 Parser.prototype.check = function (predicate) {
-  return new Parser(source =>
-    link(() => this.parse(source))
+  return new Parser(state =>
+    link(() => this.parse(state))
       .check(x => predicate(...x))
       .run()
   )
@@ -183,9 +196,11 @@ Parser.prototype.check = function (predicate) {
  *        ! -> tuple2
  */
 Parser.prototype.or = function (next) {
-  return new Parser(source =>
-    this.parse(source) || next.parse(source)
-  )
+  return new Parser(state => {
+    let copied = state.clone()
+    // console.log('off: ' + copied.offset)
+    return this.parse(state) || next.parse(copied)
+  })
 }
 
 
@@ -201,10 +216,11 @@ Parser.prototype.log = function (s) {
 
 const token = predicate => new Parser(
   function (state) {
-    let x = [][+[]]
+    // let x = [][+[]]
+    // console.log(state.curr())
     return state.hasNext()
-      ? predicate(x = state.next())
-        ? [x, '#stub_token']
+      ? predicate(state.peek())
+        ? [state.next(), '#stub_token']
         : undefined
       : undefined
   }

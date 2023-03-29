@@ -11,6 +11,7 @@ import {
   letters,
   Parser,
   state,
+  digits,
 } from "./src/parsec.mjs"
 
 
@@ -21,56 +22,65 @@ const lbrace = character('{')
 const rbrace = character('}')
 const braceWrap = x => lbrace.move(x).skip(rbrace)
 
-const macroName = letters.append(digit.asterisk()).plus()
-const macroh = backslash.move(macroName)
-const macrohc = backslash.append(macroName)
+const macro_name = letters.append(digit.asterisk()).plus()
+const macroh = backslash.move(macro_name)
+const macrohc = backslash.append(macro_name)
 
-const valueRef = () => newcommandValue
-const unaryMacro = macrohc.follow(valueRef)
-const binaryMacro = macrohc.follow(valueRef).follow(valueRef)
+const valueRef = () => newcommand_value
+const unary_macro = macrohc.follow(valueRef)
+const binary_macro = macrohc.follow(valueRef).follow(valueRef)
 
-const newcommandHolder = braceWrap(macrohc)
-const newcommandValue = braceWrap(valueRef)
-  .or(binaryMacro)
-  .or(unaryMacro)
+const newcommand_holder = braceWrap(macrohc)
+const newcommand_value = braceWrap(valueRef)
+  .or(binary_macro)
+  .or(unary_macro)
   .or(macrohc)
   .or(letters)
 
 
 
-const bsscanner = new Parser(source => {
-  if (source.charAt(0) != '{') return undefined
-  let [position, counter, len] = [1, 1, source.length]
+const param_scanner = new Parser(state => {
+  // console.log(state.curr())
+  if (state.peek() != '{') return undefined
+  let [position, counter, len] = [1, 1, state.source.length]
   while (position < len && counter) {
-    let curr = source.charAt(position++);
+    let curr = state.source.charAt(position++);
     ((curr == '{') && counter++) ||
       ((curr == '}') && counter--)
   }
   return [
-    source.substring(1, position - 1),
-    source.substring(position)
+    state.source.substring(1, position - 1),
+    // state.substring(position)
   ]
 })
 
 const newcommand = macroh.check(x => x == "newcommand")
-  .move(newcommandHolder)
-  .follow(bsscanner)
-  .map(xs => lookupMap[xs[0]] = xs[1])
+  .move(newcommand_holder)
+  .follow(param_scanner)
+  // .map(xs => {
+  //   console.log(xs)
+  //   lookup_map[xs[0]] = xs[1]
+  // })
 
-const lookupMap = new Object()
+const lookup_map = new Object()
 
+let x = newcommand.parse(state('\\newcommand{\\CC}{\\mathbb}'))
 
-// newcommand.parse(state('\\newcommand{\\CC}{\\mathbb}'))
-// newcommand.parse('\\newcommand{\\Ob}{\\operatorname{Ob}}')
+console.log(x)
+
+// newcommand.parse(state('\\newcommand{\\Ob}{\\operatorname{Ob}}'))
 // newcommand.parse('\\newcommand{\\defeq}{\\overset{\\text{def}}{=}}')
 
-console.log(
-  character('a')
-    .follow(character('b'))
-    .map(x => x)
-    .parse(state('abc'))
-)
 
 
-console.log(lookupMap)
+// console.log(
+//   character('a')
+//     .move(character('b'))
+//     .skip(character('c'))
+//     .parse(state('abc'))
+// )
+
+
+
+console.log(lookup_map)
 
